@@ -1,0 +1,41 @@
+---
+title: "PERFIL"
+image: profile.png
+about: 
+  template: trestles
+  image-width: 15em
+  image-shape: round
+  links:
+    - icon: twitter
+      text: Twitter
+      href: https://twitter.com/freyvaz92
+    - icon: facebook
+      text: Facebook
+      href: https://www.facebook.com/freyvaz92
+    - icon: github
+      text: GitHub
+      href: https://github.com/freyvaz92
+---
+
+# FRANCISCO `r kableExtra::text_spec("REYES-VÁZQUEZ", color = "#D77D10")`
+
+Soy candidato a doctor en Estudios de Población con experiencia en el desarrollo y colaboración de proyectos de investigación sobre violencia, calidad de vida, grupos indígenas y migración. Además, he contribuido a la organización de seminarios académicos para la difusión científica y trabajé como servidor público en agencias gubernamentales en la administración pública municipal de Ciudad Juárez, Chihuahua. Actualmente me dedico al manejo bases de datos, y la uso de la estadística descriptiva, inferencial y espacial aplicada a la investigación en Ciencias Sociales
+
+### Educación
+
+::: {.callout-note}
+## `r kableExtra::text_spec("**El Colegio de México**", color = "#D77D10")`
+Doctorado en Estudios de población | 2020
+:::
+
+::: {.callout-note}
+## `r kableExtra::text_spec("**El Colegio de la Frontera Norte**", color = "#D77D10")`
+Maestría en Estudios de Población \| 2016-2018
+:::
+
+::: {.callout-note}
+## `r kableExtra::text_spec("**Universidad Autónoma de Ciudad Juárez**", color = "#D77D10")`
+Licenciatura en Sociología \| 2010-2015
+:::
+
+

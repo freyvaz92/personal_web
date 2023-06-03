@@ -1,0 +1,351 @@
+---
+title: "Pirámides de población en R-Studio para entender la estructura por edad y sexo de la población migrante en los Estados Unidos (2021)"
+author: "Francisco Reyes-Vázquez"
+date: "2028-05-31"
+categories: [R, ACS, Migración, Pirámides de Población]
+image: "cover.png"
+toc: true
+toc-depth: 5
+toc-title: Contenido
+---
+
+
+
+# Introducción
+
+Las pirámides de población son herramientas gráficas que permiten observar la estructura por edad y sexo de una población. Se componen de dos histogramas invertidos que expresan el porcentaje de personas que hay en cada edad según su sexo. Además, cabe agregar que las pirámides de población tienen la capacidad de proporcionar información valiosa sobre el comportamiento de la fecundidad, la mortalidad y la esperanza de vida de una población. En esta ocasión utilizaremos datos de la [*American Community Survey* (ACS, 2021)](https://www.census.gov/programs-surveys/acs) para construir las pirámides de población de la población en Estados Unidos por país de nacimiento.
+
+La `ACS` es una encuesta continua que brinda información anual y actualizada sobre Estados Unidos y su población. Actualmente, cuenta con un tamaño de muestra de alrededor de 3 millones de direcciones postales, razón por lo que es considerada la encuesta en hogares más grande de los Estados Unidos. Esta tiene representatividad a nivel nacional, por estados, ciudades y condados con 65 mil habitantes o más. Gracias a la `ACS` es posible tener datos actualizados sobre diferentes temas sociales, económicos y demográficos, mismos que ayudan a determinar la distribución de fondos federales y estatales en Estados Unidos.
+
+# Importar y limpiar los datos
+
+Antes de comenzar, vamos a activar las librerías que vamos a utilizar a lo largo de este proyecto. Seguidamente utilizaremos la función `get_pums()` del paquete `tidycensus` para traer los datos de la `ACS` directamente del repositorio en el que se encuentran. La función se configurará de tal manera que nos permita extraer exclusivamente las variables de interés relativas a la población de los Estados Unidos reportada en la versión anual de la `ACS` para el 2021. La función `get_pums()` es completamente funcional, pero si se detecta algún problema en la descargar, se recomida obtener una `API KEY` registrándose en la página del Censo ( https://api.census.gov/data/key_signup.html) e ingresarla en la función `census_api_key()` para darla de alta.
+
+```{r message=F}
+library(tidycensus)
+library(tidyverse)
+library(reactable)
+library(survey)
+library(showtext)
+library(geofacet)
+library(tinter)
+library(RColorBrewer)
+
+```
+
+```{r echo=F, include=F}
+census_api_key("78623c1cbfac60199854fbe8c41af84db2dc3232")
+```
+
+```{r eval=F}
+census_api_key("API KEY")
+```
+
+```{r eval=F}
+
+data <- get_pums(
+  variables = c("ST","SEX", "AGEP", "POBP"),
+  state = "all",
+  survey = "acs1",
+  year = 2021,
+  recode = TRUE)
+```
+
+```{r  echo=FALSE}
+data<-read.csv("data.csv")
+```
+
+Al utilizar la función `glimpse` para explorar los datos, podemos observar que el conjunto de datos se compone de 3,252,599 observaciones y 11 columnas. Al analizar su estructura podemos identificar que cada una de las observaciones equivale a una persona y cada variable corresponde a las características de esas personas. La descripción de las variables se muestra a continuación:
+
+1.  `SERIALNO`, identificador que se compone del número de unidad de la vivienda y de la persona
+2.  `SPORDER`, identificador de la persona
+3.  `WGTP`, ponderador de la vivienda
+4.  `PWGTP`, ponderador de la persona
+5.  `AGEP`, edad de la persona
+6.  `ST`, estado de residencia
+7.  `SEX`, sexo de la persona
+8.  `POBP`, país de nacimiento
+9.  `ST_label`, etiqueta del estado de residencia
+10. `SEX_label`, etiqueta del sexo de la persona
+11. `POBP_label`, etiqueta del país de nacimiento
+
+```{r}
+glimpse(data)
+```
+
+Ahora bien, nos vamos a concentrar en las variables de interés, y vamos a explorarlas con la función `table()` y transformarlas según sea necesario. Las variables necesarias para construir la pirámide de población de los Estados Unidos son la edad y el sexo, por lo que, primero será necesario trasformar la variable`AGEP`en grupos quinquenales de edad con la función `mutate()` y vamos a colocar el resultado en una nueva variable que llamaremos `AGEP2`. Posteriormente exploraremos la variable `SEX_label` que ya se encuentra óptima y no será necesario transformar.
+
+```{r}
+#Explorar variable de edad 
+table(data$AGEP, useNA = "always")
+
+#Crear variable de edad en grupos quinquenales
+data<-mutate(data,AGEP2=case_when(AGEP<=4 ~ "<4",
+                               AGEP>=5 & AGEP<=9 ~ "05-09",
+                               AGEP>=10 & AGEP<=14 ~ "10-14",
+                               AGEP>=15 & AGEP<=19 ~ "15-19",
+                               AGEP>=20 & AGEP<=24 ~ "20-24",
+                               AGEP>=25 & AGEP<=29 ~ "25-29",
+                               AGEP>=30 & AGEP<=34 ~ "30-34",
+                               AGEP>=35 & AGEP<=39 ~ "35-39",
+                               AGEP>=40 & AGEP<=44 ~ "40-44",
+                               AGEP>=45 & AGEP<=49 ~ "45-49",
+                               AGEP>=50 & AGEP<=54 ~ "50-54",
+                               AGEP>=55 & AGEP<=59 ~ "55-59",
+                               AGEP>=60 & AGEP<=64 ~ "60-64",
+                               AGEP>=65 & AGEP<=69 ~ "65-69",
+                               AGEP>=70 & AGEP<=74 ~ "70-74",
+                               AGEP>=75 & AGEP<=79 ~ "75-79",
+                               AGEP>=80 & AGEP<=84 ~ "80-84",
+                               AGEP>=85 ~ "85+"))
+
+#Explorar variable de edad quinquenal
+table(data$AGEP2, useNA = "always")
+```
+
+```{r}
+#Explorar variable de sexo
+table(data$SEX_label, useNA = "always")
+```
+
+Adicionalmente, exploraremos las variables de estado de residencia (`ST_label`) y país de nacimiento (`POBP_label`) para incorporarlas en las pirámides de población y llevar esta herramienta gráfica a otro nivel. La primera de estas variables se utilizará tal cual se encuentra, mientras que la otra se trasformará para identificar a los orígenes nacionales con mayor presencia en Estados Unidos. Con ayuda de la función `filter()` se logró identificar a los países que han aportado más inmigrantes a los Estados Unidos, los cuales resultaron ser México, India, China y las Filipinas.
+
+```{r}
+#Explorar variable de estado de residencia
+table(data$ST_label, useNA = "always")
+```
+
+```{r}
+#Explorar variable de país de nacimiento
+data%>%
+  filter(POBP>=100)%>%
+  group_by(POBP_label,POBP)%>%
+  count()%>%
+  arrange(desc(n))
+```
+
+Con la información anterior vamos a generar una variable que nos permita identificar el origen nacional de todos los individuos de la muestra. Esa variable la nombraremos `POBP2` y nos permitirá reducir el número de países a través de la creación de una categoría denominada `Otro`. Esta opción de respuesta incluye a todos aquellos inmigrantes que no forman parte de los orígenes nacionales con mayor presencia en los Estados Unidos. Una vez concluido este procedimiento tendremos todos los insumos necesarios para construir una pirámide de población.
+
+```{r}
+#Crear variable de país de nacimiento 
+data<-mutate(data,POBP2=case_when(POBP<=100~"Estados Unidos",
+                                  POBP==303~"México",
+                                  POBP==210~"India",
+                                  POBP==207~"China",
+                                  POBP==233~"Filipinas",
+                                  TRUE~"Otro"))
+```
+
+```{r}
+#Explorar variable d país de nacimiento agrupada
+table(data$POBP2, useNA = "always")
+```
+
+# Pirámides de población en Estados Unidos
+
+Antes de trazar las pirámides de población, es importante recordar que los datos utilizados en este proyecto provienen de una encuesta, razón por la que solo son representa una muestra pequeña de la población de los Estados Unidos. Para que nuestros resultados sean más cercanos al universo poblacional, es necesario ponderar a los sujetos de la muestra para que representen al resto de individuos con las mismas o similares características. Esto se logra con las funciones `svydesign()` y `svytable()` que provienen del paquete `survey`, y otro conjunto de funciones como `group_by()` y `mutate()` que están contenidas en el paquete `tidyverse`.
+
+El primer paso de este proceso consiste en declarar el diseño de muestra utilizando el esquema de muestreo de la encuesta, mismo que se ve reflejado en un número determinado de variables técnicas. El la `ACS` solo tenemos la variable `PWGTP` que corresponde al ponderador de la persona, por lo que será necesario configurar la función `svydesign()` de tal manera que considere esa columna como un peso individual bajo un esquema de muestreo simple. Guardaremos el diseño de la encuesta en un objeto llamado `design`, mismo que será utilizado en los pasos posteriores para ponderar la muestra.
+
+```{r}
+#Declarar el diseño de muestra
+design<-svydesign(id=~1,
+                  weights=~PWGTP,
+                  data=data)
+```
+
+### Pirámide general
+
+La función `svytable()` nos ayuda a ponderar la muestra en función del diseño de encuesta, mismo que especificamos en el objeto `design`. Posteriormente, con la función `mutate()` generamos una nueva variable del porcentaje de hombres y mujeres en cada grupo quinquenal de edad. Las funciones `font_add_google()` y `showtext_auto()` del paquete `showtext` nos permiten importar tipos de letra de [Google](https://fonts.google.com/) para poder darle un mejor aspecto a nuestra pirámide. Finalmente, utilizamos la función `ggplot()` para generar una gráfica de barras invertida para cada sexo en función de la edad.
+
+```{r}
+svytable(~AGEP2+SEX_label,design = design)%>%
+  as.data.frame()%>%
+  mutate(Perc = round(Freq/sum(Freq)*100,2))->tab1
+```
+
+```{r fig.width=5.4, fig.height=6, warning=F}
+font_add_google("Oswald", "Oswald")
+font_add_google("Manrope", "Manrope")
+showtext_auto()
+
+tab1<-mutate(as.data.frame(tab1),edad_num=rep(c(1:18),times=2))
+
+age_bins<-c("<4", "05-09", "10-14", "15-19", "20-24","25-29","30-34",
+            "35-39","40-44","45-49","50-54","55-59","60-64","65-69",
+            "70-74","75-79","80-84","85+")
+
+ggplot(tab1, aes(x = edad_num, fill = SEX_label,
+                 y = ifelse(test = SEX_label == "Female",
+                            yes = -Perc, no = Perc))) + 
+  geom_bar(stat = "identity",color="gray20") +
+  scale_y_continuous(labels = abs, breaks=c(-4,-3,-2,-1,0,1,2,3,4)) +
+  coord_flip()+ 
+  scale_fill_manual(values =c("#F7E6D1","#D77D10"), labels=c("Mujer","Hombre"))+
+  scale_x_continuous(breaks = (1:18),
+                     labels = age_bins,
+                     expand = c(0, 0),
+                     sec.axis = dup_axis())+
+  labs(title = "Estructura por edad y sexo de la población\nen Estados Unidos",
+       subtitle = "American Community Survey (ACS, 2021)",
+       caption = "Fuente: Elaboración propia con datos anuales\nde la American Community Survey (ACS, 2021)", 
+       fill="",x="Grupos de edad",y="Población (%)")+
+  theme(legend.position = "top",
+        axis.text=element_text(family='Manrope', color="gray20"),
+        axis.title=element_text(family='Manrope',color="gray20"),
+        legend.text=element_text(family='Manrope',color="gray20"),
+        plot.title = element_text(family="Oswald",size=20,color="gray20"),
+        plot.subtitle = element_text(family = "Manrope",size=12,color="gray20"),
+        plot.caption = element_text(family = "Manrope",size=8,color="gray20"))+
+   geom_hline(yintercept=c(-1,-2,-3,1,2,3),
+               linetype="dashed", color="gray20")
+
+```
+
+En general, la pirámide muestra una forma de pera, situación que indica una cantidad similar de personas en los grupos de edad más jóvenes y en los grupos de edades adultas, esto mientras que se observa una disminución gradual a medida que se avanza en los grupos de edad más avanzada. En los grupos de edad más jóvenes (menores de 25 años), tanto hombres como mujeres tienen porcentajes similares, lo que indica una distribución equilibrada por sexo en esos rangos de edad. A medida que se avanza en los grupos de edad más avanzada (por encima de los 25 años), se observa una disminución en el porcentaje de hombres en comparación con las mujeres. Esto sugiere que entre las mujeres hay una mayor longevidad en comparación con los hombres.
+
+### Pirámide por país de nacimiento
+
+En `R` es posible involucrar más variables además del sexo y la edad para construir pirámides de población a un bajo costo en términos de código y de procesamiento. La función `facet_wrap()` nos permite dividir los datos en parcelas para clasificar las pirámides en función de una variable de interés, por ejemplo, el país de nacimiento. Para realizar este procedimiento, primero vamos a emplear la función `svytable()` con el objetivo de obtener el número y porcentaje de individuos en cada grupo de edad y sexo, pero ahora incluyendo también la variable que construimos para distinguir el país de nacimiento de la persona (`POBP2`). Finalmente se utilizará el mismo código empleado para la pirámide anterior, pero ahora incluyendo la función `facet_wrap()`.
+
+```{r}
+svytable(~AGEP2+SEX_label+POBP2,design = design)%>%
+  as.data.frame()%>%
+  group_by(POBP2)%>%
+  mutate(Perc = round(Freq/sum(Freq)*100,2))->tab2
+```
+
+```{r fig.width=7.2, fig.height=7, warning=F}
+font_add_google("Oswald", "Oswald")
+font_add_google("Manrope", "Manrope")
+showtext_auto()
+
+tab2<-mutate(as.data.frame(tab2),edad_num=rep(c(1:18),times=12))
+
+age_bins<-c("<4", "05-09", "10-14", "15-19", "20-24","25-29","30-34",
+            "35-39","40-44","45-49","50-54","55-59","60-64","65-69",
+            "70-74","75-79","80-84","85+")
+
+ggplot(tab2, aes(x = edad_num, fill = SEX_label,
+                 y = ifelse(test = SEX_label == "Female",
+                            yes = -Perc, no = Perc))) + 
+  geom_bar(stat = "identity",color="gray20", size=0.3) +
+  scale_y_continuous(labels = abs, breaks=c(-8,-6,-4,-2,0,2,4,6,8)) +
+  coord_flip()+ 
+  scale_fill_manual(values =c("#F7E6D1","#D77D10"), labels=c("Mujer","Hombre"))+
+  scale_x_continuous(breaks = (1:18),
+                     labels = age_bins,
+                     expand = c(0, 0),
+                     sec.axis = dup_axis())+
+  labs(title = "Estructura por edad y sexo de la población en Estados Unidos\npor país de nacimiento",
+       subtitle = "American Community Survey (ACS, 2021)",
+       caption = "Fuente: Elaboración propia con datos anuales\nde la American Community Survey (ACS, 2021)", 
+       fill="",x="Grupos de edad",y="Población (%)")+
+  theme(legend.position = "top",
+        axis.text=element_text(family='Manrope', color="gray20", size=7),
+        axis.title=element_text(family='Manrope',color="gray20"),
+        legend.text=element_text(family='Manrope',color="gray20"),
+        plot.title = element_text(family="Oswald",size=20,color="gray20"),
+        plot.subtitle = element_text(family = "Manrope",size=12,color="gray20"),
+        plot.caption = element_text(family = "Manrope",size=8,color="gray20"))+
+   geom_hline(yintercept=c(-2,-4,-6,-8,2,4,6,8), linetype="dashed", 
+              size=0.35,color="gray20")+
+  facet_wrap(~POBP2)
+  
+```
+
+El resultado son seis parcelas dentro de las cuales se encuentran las pirámides de población asociadas a cada uno de los orígenes nacionales de interés. La forma y la distribución de la población en cada pirámide nos permite visualizar ciertas estructuras interpretables. Por ejemplo, se puede apreciar que diferencia de la población nativa, la estructura por edad y sexo de la población migrante en los Estados Unidos muestra una tendencia regresiva con una pirámide de población en forma de rombo. En este tipo de pirámides, los grupos de edades de la base y de las puntas son más pequeños que los grupos del medio, situación que indica una mayor presencia de población en edad productiva.
+
+Al descomponer la población en Estados Unidos por país de nacimiento, se puede observar que la pirámide de los nativos es principalmente estacionaria, es decir, que las barras en cada grupo de edad son más o menos uniformes. Sin embargo, su estructura por edad y sexo es particularmente interesante porque evidencia un vació importante de población en edades productivas, mismo que muy probablemente es complementado con la presencia de la población migrante. Un punto importante de resaltar es que la población mexicana en Estados Unidos se encuentra conformada principalmente por hombres, mientras que la población filipina y china en el país se encuentra predominantemente compuesta por más mujeres que hombres.
+
+### Llevando el concepto de histograma a otro nivel
+
+Evidentemente, la creación de parcelas por medio de la función `facet_wrap()` no son tan intuitivas como se esperaría. En ocasiones las diferencias entre sexo o edad son tan pequeñas que llegan a ser imperceptibles para la vista. En función de lo anterior, es que se propone mejorar la representación de las pirámides de población utilizando un enfoque basado en capas. Al colocar una pirámide sobre la otra, es posible comparar de mejor manera las distribuciones de una y otra población en cuanto a su edad y sexo.
+
+Este ejercicio solo es posible al combinar los histogramas convencionales que constituyen una pirámide de población y el número de gráficos de lineas que sean necesarios. Para realizar dicho procedimiento utilizaremos las funciones de `ggplot()` dentro de la cual definiremos los ejes `x` y `y` del gráfico, y las funciones `geom_bar()`, `geom_line()` y `geo_point()` para determinar los tipos de gráficos a utilizar en la figura. Para su correcta construcción, utilizaremos el mismo código utilizado con anterioridad, solo que ahora agregaremos lineas y puntos superpuestos a las barras.
+
+```{r}
+svytable(~AGEP2+SEX_label+POBP2,design = design)%>%
+  as.data.frame()%>%
+  group_by(POBP2)%>%
+  mutate(Perc = round(Freq/sum(Freq)*100,2))%>%
+  filter(POBP2!="Otro")->tab3
+
+```
+
+```{r fig.width=5.4, fig.height=6, warning=F}
+font_add_google("Oswald", "Oswald")
+font_add_google("Manrope", "Manrope")
+showtext_auto()
+
+tab3<-mutate(as.data.frame(tab3),edad_num=rep(c(1:18),times=10))
+
+age_bins<-c("<4", "05-09", "10-14", "15-19", "20-24","25-29","30-34",
+            "35-39","40-44","45-49","50-54","55-59","60-64","65-69",
+            "70-74","75-79","80-84","85+")
+
+
+ggplot(data = subset(tab3,POBP2!="Estados Unidos"),
+       mapping = aes(x = edad_num, y = ifelse(test = SEX_label == "Female",
+                                              yes = -Perc, no = Perc),
+                     color = POBP2,fill=SEX_label)) +
+  geom_bar(data=subset(tab3,POBP2=="Estados Unidos"),
+           stat = "identity",color="gray20" )+
+  geom_line(size=0.8)+
+  geom_point(size=3,aes(color=POBP2))+
+  coord_flip(clip = "off")+
+  scale_x_continuous(breaks = (1:18),
+                     labels = age_bins,
+                     expand = c(0, 0),
+                     sec.axis = dup_axis())+
+  scale_y_continuous(labels = abs, breaks=c(-8,-6,-4,-2,0,2,4,6,8),
+                     limits = c(-9,9))+
+    scale_color_brewer(palette = "YlOrBr")+
+    scale_fill_manual(values =c("#F7E6D1","#D77D10"))+
+  theme(legend.position="bottom",
+          text = element_text(size = 17))+
+  annotate(geom = "text", x = 1.8, y = -28.5, size=5,
+           label = "Hombres", hjust = "left")+
+  annotate(geom = "text", x = 1.8, y = 22.5, size=5,
+           label = "Mujeres", hjust = "left")+
+  guides(fill=F)+
+  labs(x="Grupos de edad",y="Población (%)",color = "", shape = "")+
+  labs(title = "Contribución de la población migrante a la\nestructura por edad y sexo de la población\nen Estados Unidos",
+       subtitle = "American Community Survey (ACS, 2021)",
+       caption = "Fuente: Elaboración propia con datos anuales\nde la American Community Survey (ACS, 2021)", 
+       fill="",x="Grupos de edad",y="Población (%)")+
+  theme(legend.position = "top",
+        axis.text=element_text(family='Manrope', color="gray20",size=9),
+        axis.title=element_text(family='Manrope',color="gray20",size=11),
+        legend.text=element_text(family='Manrope',color="gray20", size=12),
+        plot.title = element_text(family="Oswald",size=20,color="gray20"),
+        plot.subtitle = element_text(family = "Manrope",size=12,color="gray20"),
+        plot.caption = element_text(family = "Manrope",size=8,color="gray20"))+
+   geom_hline(yintercept=c(-2,-4,-6,-8,2,4,6,8), linetype="dashed", 
+              size=0.35,color="gray20")+
+    annotate(geom = "text", x = 3, y = -8.5, size=4,
+           label = "Mujeres", hjust = "left")+
+  annotate(geom = "text", x = 3, y = 5, size=4,
+           label = "Hombres", hjust = "left")
+
+
+```
+
+El código anterior nos proporciona una pirámide de población en la cual es posible apreciar las estructura por edad y sexo, pero considerando el país de nacimiento de la población en Estados Unidos. En las barras es posible observar la distribución porcentual de las personas que nacieron en Estados Unidos, mientras que las lineas con puntos se explica la distribución porcentual de la población migrante. Cabe mencionar que, cada uno de los distintos orígenes nacionales contribuyen de manera diferenciada a la estructura de la población en Estados Unidos, por ejemplo, complementando los vacíos que existen en algunos grupos de edad considerados productivos y reproductivos.
+
+Por un lado, se encuentran los mexicanos que aportan más al quinquenio de 45-49 años, mientras que los indios aportan de sobremanera al grupo de 35-39 años. Por su parte, los chinos tienen una mayor contribución en el quinquenio 30-34, mientras que los filipinos aportan más en edades avanzadas que van desde los 50 a los 69 años. Esto también nos permite reconoce cuáles estructuras poblacionales son más longevas (provenientes de las Filipnas) y cuáles son más jóvenes (provenientes de India, China y México). En la imagen se puede apreciar la complementariedad demográfica de la cual se ha hablado.
+
+# Conclusiones
+
+Las pirámides de población son herramientas gráficas muy potentes que nos permiten observar la estructura por edad y sexo de las poblaciones. La forma en la que se pueden utilizar las pirámides son muy variadas y enriquecedoras, pero su determinación siempre estará encaminada a visualizar la distribución de las personas según su sexo, su edad y otras variables opcionales, por ejemplo, el país de nacimiento.
+
+Los resultados del análisis de datos de este ejercicio revelan que existen patrones significativos en la estructura de la pirámide de población y la distribución por edad y sexo en relación con diferentes grupos demográficos en los Estados Unidos. Estos hallazgos demográficos son de gran importancia para comprender las dinámicas poblacionales y sus implicaciones sociales y económicas.
+
+La composición de la población en Estados Unidos se caracteriza por una distribución equilibrada de personas nativas en las edades más jóvenes y más lonjevas, con un vació en las edades adultas. Esta población muestra con una tendencia al envejecimiento que muy probablemente se complementa con una mayor presencia de migrantes en edades productivas y reproductivas que nos permiten entender la importancia de considerar factores como la edad y el sexo al analizar los patrones poblacionales.
+
+::: {.callout-note title="¿Cómo citar este *post*?"}
+
+## ¿Cómo citar este post?
+Reyes-Vázquez, F. (31 de mayo del 2023). Pirámides de población en R-Studio para entender la estructura por edad y sexo de la poblacion migrante en los Estados Unidos (2021). Mi Blog. https://www.bibguru.com/es/g/cita-apa-publicacion-de-blog/
+:::
+

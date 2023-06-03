@@ -1,0 +1,34 @@
+---
+title: "PUBLICACIONES"
+image: profile2.png
+about: 
+  template: solana
+  image-width: 15em
+  image-shape: round
+  links:
+    - icon: academia
+      text: Academia.edu
+      href: https://colmex.academia.edu/FranciscoReyesV%C3%A1zquez
+    - icon: researchgate
+      text: ResearchGate
+      href: https://www.researchgate.net/profile/Francisco-Reyes-Vazquez-2
+---
+
+
+
+## Artículos
+
+Herrera Robles, L. A., Díaz Arenas, P. F., & Reyes-Vázquez, F. . (2022). Precarización de las condiciones del empleo en Ciudad Juárez, Chihuahua, México 2021. Miradas, 17(2), 46–64. https://doi.org/10.22517/25393812.25199
+
+
+Fernández, T., Reyes-Vázquez, F. & Martínez , F. (2021). Validación y fiabilidad de un cuestionario múltiple de violencia de pareja en jóvenes universitarios (CRVPU). Alternativas En Psicología, 47(8), 140–150.
+
+
+Reyes-Vázquez, F., & de la O, M. (2019). El comportamiento de los usuarios de Twitter respecto al tema de la Caravana Migrante a través del Sentiment Analysis (SA), 2019. Revista De La Asociación De Mexicana De Ciencias Políticas.
+
+
+## Libros
+
+Reyes-Vázquez, F., Acosta, F. & Ordóñez, G. (2019). Calidad de vida urbana en las zonas marginadas de Ciudad Juárez y Tijuana: una propuesta para su medición a través de la satisfacción humana. La Ciudad Existente.
+
+Reyes-Vázquez, F., Acosta, F. & Ordóñez, G. (2022). Calidad de vida urbana en zonas marginadas de ciudades situadas en entidades de la frontera norte y sur de México. Acercando Las Fronteras Desde Las Ciencias Sociales: Experiencias y Problemáticas En La Frontera Norte y Sur De México.

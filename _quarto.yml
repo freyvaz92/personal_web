@@ -1,0 +1,23 @@
+project:
+  type: website
+
+website:
+  title: "FRANCISCO REYES-VÁZQUEZ"
+  navbar:
+    right:
+      - about.qmd
+      - pub.qmd
+      - text: "MI BLOG"
+        file: index.qmd
+      
+code-block-bg: true
+code-block-border-left: "#D77D10"
+highlight-style: ayu
+code-overflow: wrap
+format:
+  html:
+    theme: custom.scss
+    css: style.css
+
+editor: visual
+
